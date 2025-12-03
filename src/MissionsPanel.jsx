@@ -7,6 +7,8 @@ import {
   validateMission4,
   validateMission5,
   validateMission6,
+  validateMission7,
+  validateMission8,
 } from "./missionValidator";
 
 const missions = [
@@ -45,13 +47,28 @@ const missions = [
       'En el archivo "index.html", escribí una página simple que tenga un <h1> cuyo texto mencione la palabra "Git". Después podés versionarla con git add / git commit.',
     validator: validateMission5,
   },
-    {
+  {
     id: "m6",
     title: 'Misión 6 – Merge de "feature/login" a "main"',
     description:
       'Desde la rama "main", integrá los cambios de "feature/login" usando "git merge feature/login". Al final, ambas ramas deben apuntar al mismo commit.',
     validator: validateMission6,
   },
+  {
+    id: "m7",
+    title: "Misión 7 – Generar un conflicto de merge",
+    description:
+      "Trabajá en dos ramas y provocá un conflicto modificando la misma línea del mismo archivo.",
+    validator: validateMission7,
+  },
+  {
+    id: "m8",
+    title: "Misión 8 – Resolver el conflicto de merge",
+    description:
+      "Abrí el editor, resolvé el conflicto eliminando las marcas y dejá la versión correcta. Luego: git add, git commit.",
+    validator: validateMission8,
+  },
+
 
 ];
 

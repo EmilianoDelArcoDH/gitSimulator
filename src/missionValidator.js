@@ -302,3 +302,86 @@ export async function validateMission6() {
     errors,
   };
 }
+
+/**
+ * MISIÓN 7 — Generar un conflicto de merge simple
+ *
+ * Objetivo:
+ *  - Que exista la rama "conflicto"
+ *  - Que al hacer merge desde main, se haya producido un conflicto
+ */
+export async function validateMission7() {
+  const errors = [];
+
+  // Detectar si hubo conflicto
+  const conflictFiles = await git.statusMatrix({ fs, dir: REPO_DIR })
+    .then(matrix =>
+      matrix.filter(([path, head, workdir, stage]) => stage === 0 && workdir === 2)
+        .map(([path]) => path)
+    )
+    .catch(() => []);
+
+  if (conflictFiles.length === 0) {
+    errors.push(
+      "No se detectaron archivos en conflicto. Necesitás producir un conflicto modificando la misma línea en dos ramas distintas."
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 8 — Resolver el conflicto y completar el merge
+ */
+export async function validateMission8() {
+  const errors = [];
+
+  // Detectar si aún hay marcadores <<<<<<< >>>>>>>
+  let conflictMarkers = false;
+
+  const files = await listDir(REPO_DIR);
+  const visible = files.filter((f) => f !== ".git");
+
+  for (const file of visible) {
+    const full = `${REPO_DIR}/${file}`;
+    const content = await readFile(full);
+    if (
+      content.includes("<<<<<<<") ||
+      content.includes("=======") ||
+      content.includes(">>>>>>>")
+    ) {
+      conflictMarkers = true;
+      break;
+    }
+  }
+
+  if (conflictMarkers) {
+    errors.push(
+      "Todavía quedan marcadores de conflicto (<<<<<<< ======= >>>>>>>). Tenés que resolverlos y luego hacer commit."
+    );
+  }
+
+  // Detectar si se completó el merge
+  let mergeDone = true;
+  try {
+    const log = await git.log({ fs, dir: REPO_DIR, ref: "HEAD" });
+    mergeDone = log[0].commit.message.toLowerCase().includes("resuelvo");
+  } catch {
+    mergeDone = false;
+  }
+
+  if (!mergeDone) {
+    errors.push(
+      'Después de resolver el conflicto tenés que hacer: git add <archivo> y luego: git commit -m "Resuelvo conflicto"'
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
