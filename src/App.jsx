@@ -14,7 +14,7 @@ function App() {
   const [resetId, setResetId] = useState(0);
   const [resetting, setResetting] = useState(false);
 
-  
+
   const [activityId, setActivityId] = useState(ACTIVITIES[0].id);
 
   const currentActivity =
@@ -63,7 +63,10 @@ function App() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#020617",
+        backgroundImage: "url('https://assets.digitalhouse.com/content/ar/sch/trama-schools-clara.jpeg')",
+        backgroundSize: "100%",
+        backgroundColor: "white",
+        backgroundPositionY: "50px",
         color: "#f9fafb",
         display: "flex",
         flexDirection: "column",
@@ -89,7 +92,7 @@ function App() {
               style={{
                 marginBottom: "6px",
                 fontSize: "14px",
-                color: "#9ca3af",
+                color: "#5f697cff",
               }}
             >
               Practicá comandos Git, simulá un remoto tipo GitHub y completá
@@ -100,7 +103,7 @@ function App() {
               style={{
                 margin: 0,
                 fontSize: "12px",
-                color: "#a5b4fc",
+                color: "#788ceeff",
               }}
             >
               Actividad actual:{" "}
@@ -190,9 +193,9 @@ function App() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1.2fr",
-            gap: "12px",
-            width: "100%",
+            gridTemplateColumns: "1.4fr 1fr",
+            gap: "20px",
+            padding: "16px 0",
           }}
         >
           <Terminal key={`terminal-${resetId}-${activityId}`} />

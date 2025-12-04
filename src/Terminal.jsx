@@ -13,12 +13,12 @@ export function Terminal() {
   const [current, setCurrent] = useState("");
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [prompt, setPrompt] = useState("git-trainer$ ");
+  const [prompt, setPrompt] = useState("main");
   const logRef = useRef(null);
 
   useEffect(() => {
     if (logRef.current) {
-      // 👇 solo se scrollea dentro del panel, no la página entera
+      // solo se scrollea dentro del panel, no la página entera
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [lines]);
@@ -49,6 +49,12 @@ export function Terminal() {
     try {
       const result = await runCommand(input);
       if (result) appendLine(result);
+
+      if (input.trim().startsWith("git ")) {
+        await updatePrompt();
+      }
+
+
     } catch (err) {
       appendLine(`Error: ${err.message || String(err)}`);
     }
@@ -85,18 +91,29 @@ export function Terminal() {
       });
     }
   };
+  const updatePrompt = async () => {
+    try {
+      const b = await gitCurrentBranchName();
+      setPrompt(b || "main");
+    } catch {
+      setPrompt("main");
+    }
+  };
+
 
   return (
     <div
       style={{
-        background: "#111",
-        color: "#eee",
-        fontFamily: "monospace",
-        padding: "12px",
+        background: "#0C0C0C", // fondo terminal estilo Git Bash
+        color: "#E5E5E5",
+        fontFamily: "'Consolas', 'Courier New', monospace",
+        padding: "14px",
         borderRadius: "8px",
-        height: "400px",
+        height: "420px",
         display: "flex",
         flexDirection: "column",
+        border: "1px solid #333", // borde estilo ventana terminal
+        boxShadow: "0 0 8px rgba(0,0,0,0.4)",
       }}
     >
       <div
@@ -106,6 +123,12 @@ export function Terminal() {
           overflowY: "auto",
           whiteSpace: "pre-wrap",
           fontSize: "14px",
+          lineHeight: "1.4",
+          padding: "8px",
+          background: "#111", // más profundo que el fondo exterior
+          borderRadius: "4px",
+          marginBottom: "8px",
+          border: "1px solid #222",
         }}
       >
         {lines.map((line, i) => (
@@ -114,7 +137,19 @@ export function Terminal() {
       </div>
 
       <form onSubmit={handleSubmit} style={{ marginTop: "8px" }}>
-        <span>{prompt}</span>
+        {/* PROMPT ESTILO GIT BASH CON DH */}
+        <span style={{ display: "flex", flexWrap: "wrap" }}>
+          {/* DH@GIT-TRAINER */}
+          <span style={{ color: "#3CF253" }}>DH@GIT-TRAINER</span>
+          {/* MINGW64 */}
+          <span style={{ color: "#C586C0" }}> MINGW64</span>
+          {/* ruta */}
+          <span style={{ color: "#E3BF5F" }}> ~/repo</span>
+          {/* rama */}
+          <span style={{ color: "#3CF253" }}> ({prompt})</span>
+          {/* símbolo $ */}
+          <span style={{ color: "#FFFFFF" }}>$ </span>
+        </span>
         <input
           autoFocus
           value={current}
@@ -124,9 +159,10 @@ export function Terminal() {
             background: "transparent",
             border: "none",
             outline: "none",
-            color: "#eee",
-            fontFamily: "monospace",
+            color: "#E5E5E5",
+            fontFamily: "'Consolas', monospace",
             fontSize: "14px",
+            paddingLeft: "6px",
             width: "80%",
           }}
         />
