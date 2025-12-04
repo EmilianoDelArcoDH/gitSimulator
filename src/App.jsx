@@ -9,13 +9,12 @@ import { resetEnvironment } from "./envReset";
 import { ACTIVITIES } from "./activitiesConfig";
 import { SuggestionsPanel } from "./SuggestionsPanel";
 
-
 function App() {
   const [resetId, setResetId] = useState(0);
   const [resetting, setResetting] = useState(false);
 
-
   const [activityId, setActivityId] = useState(ACTIVITIES[0].id);
+  const [theme, setTheme] = useState("dark"); // "dark" o "light"
 
   const currentActivity =
     ACTIVITIES.find((a) => a.id === activityId) || ACTIVITIES[0];
@@ -41,8 +40,7 @@ function App() {
 
   const handleActivityChange = async (e) => {
     const newId = e.target.value;
-    const newActivity =
-      ACTIVITIES.find((a) => a.id === newId) || ACTIVITIES[0];
+    const newActivity = ACTIVITIES.find((a) => a.id === newId) || ACTIVITIES[0];
 
     setActivityId(newId);
     setShowEditor(newActivity.showEditor);
@@ -59,40 +57,73 @@ function App() {
     }
   };
 
+  const themes = {
+    light: {
+      appBackground: {
+        backgroundImage:
+          "url('https://assets.digitalhouse.com/content/ar/sch/trama-schools-clara.jpeg')",
+        backgroundSize: "100%",
+        backgroundColor: "white",
+        backgroundPositionY: "50px",
+        color: "#1f2937",
+      },
+      cardBg: "#ffffff",
+      text: "#1f2937",
+      subtle: "#475569",
+      border: "#cbd5e1",
+    },
+
+    dark: {
+      appBackground: {
+        backgroundColor: "#020617",
+        color: "#e5e7eb",
+      },
+      cardBg: "#0f172a",
+      text: "#e5e7eb",
+      subtle: "#94a3b8",
+      border: "#1f2937",
+    },
+  };
+
   return (
     <div
       style={{
         minHeight: "100vh",
-        backgroundImage: "url('https://assets.digitalhouse.com/content/ar/sch/trama-schools-clara.jpeg')",
-        backgroundSize: "100%",
-        backgroundColor: "white",
-        backgroundPositionY: "50px",
-        color: "#f9fafb",
-        display: "flex",
-        flexDirection: "column",
-        padding: "20px",
         fontFamily: "system-ui, sans-serif",
+        ...themes[theme].appBackground, // 👈 aplica tema dinámico
       }}
     >
-      <div style={{ width: "100%", padding: "0 20px" }}>
-        {/* Header */}
+      <div
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "16px 16px 32px",
+        }}
+      >
+        {/* HEADER */}
         <div
           style={{
             display: "flex",
             alignItems: "flex-start",
-            marginBottom: "12px",
+            marginBottom: "16px",
             gap: "16px",
           }}
         >
           <div style={{ flex: 1 }}>
-            <h1 style={{ marginBottom: "4px", fontSize: "24px" }}>
+            <h1
+              style={{
+                marginBottom: "4px",
+                fontSize: "24px",
+                color: "#f9fafb",
+              }}
+            >
               Git & GitHub Trainer (Simulado)
             </h1>
             <p
               style={{
                 marginBottom: "6px",
                 fontSize: "14px",
-                color: "#5f697cff",
+                color: "#9ca3af",
               }}
             >
               Practicá comandos Git, simulá un remoto tipo GitHub y completá
@@ -103,11 +134,10 @@ function App() {
               style={{
                 margin: 0,
                 fontSize: "12px",
-                color: "#788ceeff",
+                color: "#94a3b8",
               }}
             >
-              Actividad actual:{" "}
-              <strong>{currentActivity.name}</strong> –{" "}
+              Actividad actual: <strong>{currentActivity.name}</strong> –{" "}
               {currentActivity.description}
             </p>
           </div>
@@ -124,7 +154,7 @@ function App() {
             <label
               style={{
                 fontSize: "12px",
-                color: "#9ca3af",
+                color: "#cbd5f5",
               }}
             >
               Elegí una actividad:
@@ -149,6 +179,21 @@ function App() {
                 ))}
               </select>
             </label>
+
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              style={{
+                background: theme === "dark" ? "#eab308" : "#1e293b",
+                border: "none",
+                borderRadius: "6px",
+                padding: "6px 10px",
+                fontSize: "13px",
+                color: theme === "dark" ? "#1f2937" : "#f9fafb",
+                cursor: "pointer",
+              }}
+            >
+              Modo {theme === "dark" ? "Claro 🌞" : "Oscuro 🌙"}
+            </button>
 
             <button
               onClick={() => setShowEditor((v) => !v)}
@@ -184,31 +229,48 @@ function App() {
           </div>
         </div>
 
-        {/* Editor opcional */}
-        {showEditor && (
-          <EditorPanel key={`editor-${resetId}-${activityId}`} />
-        )}
-
-        {/* Consola + visualizador */}
+        {/* LAYOUT PRINCIPAL: IZQUIERDA (editor + terminal) / DERECHA (viz + tips + misiones) */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "1.4fr 1fr",
             gap: "20px",
-            padding: "16px 0",
+            alignItems: "stretch",
           }}
         >
-          <Terminal key={`terminal-${resetId}-${activityId}`} />
-          <GitVisualizer key={`viz-${resetId}-${activityId}`} />
+          {/* Columna izquierda */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            {showEditor && (
+              <EditorPanel key={`editor-${resetId}-${activityId}`} />
+            )}
+
+            <Terminal key={`terminal-${resetId}-${activityId}`} />
+          </div>
+
+          {/* Columna derecha */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <GitVisualizer key={`viz-${resetId}-${activityId}`} />
+
+            <SuggestionsPanel key={`tips-${resetId}-${activityId}`} />
+
+            <MissionsPanel
+              key={`missions-${resetId}-${activityId}`}
+              enabledMissionIds={currentActivity.enabledMissionIds}
+            />
+          </div>
         </div>
-
-        <SuggestionsPanel key={`tips-${resetId}-${activityId}`} />
-
-        {/* Misiones filtradas por actividad */}
-        <MissionsPanel
-          key={`missions-${resetId}-${activityId}`}
-          enabledMissionIds={currentActivity.enabledMissionIds}
-        />
       </div>
     </div>
   );
