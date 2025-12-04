@@ -9,6 +9,7 @@ import {
   validateMission6,
   validateMission7,
   validateMission8,
+  validateMission9,
 } from "./missionValidator";
 
 const missions = [
@@ -68,6 +69,14 @@ const missions = [
       "Abrí el editor, resolvé el conflicto eliminando las marcas y dejá la versión correcta. Luego: git add, git commit.",
     validator: validateMission8,
   },
+  {
+    id: "m9",
+    title: "Misión 9 – Mi Primer Pull Request",
+    description:
+      "Creá una rama de feature, hacé commits, subí la rama al remoto y luego creá un Pull Request (github pr create <from> main). Verificá que aparezca en el visualizador.",
+    validator: validateMission9,
+  },
+
 
 
 ];

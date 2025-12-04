@@ -15,8 +15,154 @@ import {
   createRemoteRepo,
   getRemoteStatus,
   pushToRemote,
-  getRemoteData,
+  createPullRequest,
+  listPullRequests,
+  mergePullRequest,
 } from "./githubSim";
+
+const KNOWN_GIT_FULL = [
+  "git init",
+  "git status",
+  "git add",
+  "git commit",
+  "git log",
+  "git branch",
+  "git checkout",
+  "git merge",
+  "git push",
+];
+
+function suggestFullGitCommand(raw) {
+  let best = null;
+  let bestDistance = Infinity;
+
+  for (const cmd of KNOWN_GIT_FULL) {
+    const d = levenshtein(raw, cmd.replace(" ", ""));
+    // comparamos sin espacio: "gitinit" vs "git init"
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = cmd;
+    }
+  }
+
+  if (bestDistance > 3) return null;
+  return best;
+}
+
+// --- Sugerencias para comandos "github" ---
+
+const KNOWN_GITHUB_SUBCOMMANDS = ["create", "status", "pr"];
+
+function suggestGithubSubcommand(word) {
+  let best = null;
+  let bestDistance = Infinity;
+
+  for (const candidate of KNOWN_GITHUB_SUBCOMMANDS) {
+    const d = levenshtein(word, candidate);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = candidate;
+    }
+  }
+
+  if (bestDistance > 3) return null;
+  return best;
+}
+
+const KNOWN_GITHUB_FULL = ["github create", "github status", "github pr"];
+
+function suggestFullGithubCommand(raw) {
+  let best = null;
+  let bestDistance = Infinity;
+
+  for (const cmd of KNOWN_GITHUB_FULL) {
+    const d = levenshtein(raw, cmd.replace(" ", "")); // "githubcreate" vs "github create"
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = cmd;
+    }
+  }
+
+  if (bestDistance > 3) return null;
+  return best;
+}
+
+
+
+
+// Lista de subcomandos git que soporta el simulador
+const KNOWN_GIT_SUBCOMMANDS = [
+  "init",
+  "status",
+  "add",
+  "commit",
+  "log",
+  "branch",
+  "checkout",
+  "merge",
+  "push",
+];
+
+// Distancia de Levenshtein (para ver qué tan parecido es un comando mal escrito)
+function levenshtein(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () =>
+    new Array(n + 1).fill(0)
+  );
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,      // borrar
+        dp[i][j - 1] + 1,      // insertar
+        dp[i - 1][j - 1] + cost // reemplazar
+      );
+    }
+  }
+
+  return dp[m][n];
+}
+
+function suggestGitSubcommand(word) {
+  let best = null;
+  let bestDistance = Infinity;
+
+  for (const candidate of KNOWN_GIT_SUBCOMMANDS) {
+    const d = levenshtein(word, candidate);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = candidate;
+    }
+  }
+
+  // Si está demasiado lejos, no sugerimos nada
+  if (bestDistance > 3) return null;
+  return best;
+}
+
+// --- Hints educativos por comando git ---
+
+const shownHints = new Set();
+
+function withHint(key, baseMessage, hintLines) {
+  // Si ya mostramos el tip para este comando, devolvemos solo el mensaje base
+  if (shownHints.has(key)) return baseMessage;
+
+  shownHints.add(key);
+  const hintBlock = ["", "ℹ️ Tip:", ...hintLines].join("\n");
+
+  // Si no hay mensaje base (caso raro), devolvemos solo el hint
+  if (!baseMessage) return hintBlock;
+
+  return baseMessage + "\n" + hintBlock;
+}
+
+
 
 async function ensureRepoReady() {
   try {
@@ -108,6 +254,11 @@ function parseGitCommand(cmd) {
       return { type: "git-merge", branch: name };
     }
 
+    case "conflicts": {
+      // git conflicts  → lista archivos con marcas de conflicto
+      return { type: "git-conflicts" };
+    }
+
 
     case "push": {
       const remote = parts[2] || "origin";
@@ -115,11 +266,25 @@ function parseGitCommand(cmd) {
       return { type: "git-push", remote, branch };
     }
 
-    default:
+    default: {
+      const suggestion = suggestGitSubcommand(sub);
+      if (suggestion) {
+        return {
+          type: "error",
+          message: [
+            `Comando git desconocido: "${sub}".`,
+            "",
+            `💡 Quizás quisiste escribir:`,
+            `    git ${suggestion}`,
+          ].join("\n"),
+        };
+      }
+
       return {
         type: "error",
-        message: `Comando git no soportado todavía: git ${sub}`,
+        message: `Comando git desconocido: "${sub}". Usá "git help" o "help" para ver los comandos disponibles.`,
       };
+    }
   }
 }
 
@@ -150,19 +315,152 @@ function parseGithubCommand(cmd) {
     case "status":
       return { type: "gh-status" };
 
-    default:
+    case "pr": {
+      const action = parts[2];
+
+      if (!action) {
+        return {
+          type: "error",
+          message:
+            'Uso: github pr <comando>\nEj: github pr create <from> <to>, github pr list, github pr merge <id>',
+        };
+      }
+
+      // github pr create <from> [to] [-t "Título opcional"]
+      if (action === "create") {
+        const from = parts[3];
+        const to = parts[4] || "main";
+
+        if (!from) {
+          return {
+            type: "error",
+            message: "Uso: github pr create <rama-origen> [rama-destino]",
+          };
+        }
+
+        const titleIndex = parts.indexOf("-t");
+        let title = "";
+        if (titleIndex !== -1 && parts[titleIndex + 1]) {
+          title = parts.slice(titleIndex + 1).join(" ");
+        }
+
+        return {
+          type: "gh-pr-create",
+          from,
+          to,
+          title,
+        };
+      }
+
+      // github pr list
+      if (action === "list") {
+        return { type: "gh-pr-list" };
+      }
+
+      // github pr merge <id>
+      if (action === "merge") {
+        const idStr = parts[3];
+        if (!idStr) {
+          return {
+            type: "error",
+            message: "Uso: github pr merge <id>",
+          };
+        }
+        const id = parseInt(idStr, 10);
+        if (Number.isNaN(id)) {
+          return {
+            type: "error",
+            message: "El id del PR debe ser un número.",
+          };
+        }
+        return { type: "gh-pr-merge", id };
+      }
+
+      return {
+        type: "error",
+        message:
+          'Subcomando no soportado para "github pr". Usá: create, list, merge.',
+      };
+    }
+
+    default: {
+      const suggestion = suggestGithubSubcommand(sub);
+      if (suggestion) {
+        return {
+          type: "error",
+          message: [
+            `Comando GitHub simulado desconocido: "github ${sub}".`,
+            "",
+            "💡 Quizás quisiste escribir:",
+            `    github ${suggestion} ...`,
+          ].join("\n"),
+        };
+      }
+
       return {
         type: "error",
         message: `Comando GitHub simulado no soportado: github ${sub}`,
       };
+    }
   }
 }
+
+
+async function listConflictFiles() {
+  const entries = await listDir(REPO_DIR);
+  const visibles = entries.filter((name) => name !== ".git");
+
+  const conflicts = [];
+
+  for (const file of visibles) {
+    const path = `${REPO_DIR}/${file}`;
+    const content = await readFile(path);
+    if (
+      content.includes("<<<<<<<") &&
+      content.includes("=======") &&
+      content.includes(">>>>>>>")
+    ) {
+      conflicts.push(file);
+    }
+  }
+
+  return conflicts;
+}
+
 
 export async function runCommand(input) {
   const trimmed = input.trim();
   if (!trimmed) return "";
 
-  if (trimmed === "help") {
+  // Caso especial: cosas tipo "gitinit", "gitstatus", "gitcommit"
+  if (trimmed.startsWith("git") && !trimmed.startsWith("git ")) {
+    const suggestion = suggestFullGitCommand(trimmed);
+    if (suggestion) {
+      return [
+        `Comando no reconocido: "${trimmed}"`,
+        "",
+        "💡 Quizás quisiste escribir:",
+        `    ${suggestion}`,
+      ].join("\n");
+    }
+  }
+
+  // github sin espacio → githubcreate, githubstatus, etc.
+  if (trimmed.startsWith("github") && !trimmed.startsWith("github ")) {
+    const suggestion = suggestFullGithubCommand(trimmed);
+    if (suggestion) {
+      return [
+        `Comando no reconocido: "${trimmed}"`,
+        "",
+        "💡 Quizás quisiste escribir:",
+        `    ${suggestion} ...`,
+      ].join("\n");
+    }
+  }
+
+
+
+    if (trimmed === "help") {
     return [
       "Comandos disponibles:",
       "  help                        - Muestra esta ayuda",
@@ -183,13 +481,17 @@ export async function runCommand(input) {
       "  git branch <nombre>         - Crea una rama nueva",
       "  git checkout <nombre>       - Cambia a la rama indicada",
       "  git merge <rama>            - Integra la rama indicada en la rama actual",
-
+      "  git conflicts               - Lista archivos con marcas de conflicto de merge",
       "",
       "GitHub simulado:",
-      "  github create <nombre>      - Crea un repo remoto simulado",
-      "  github status               - Muestra estado del remoto simulado",
+      "  github create <nombre>          - Crea un repo remoto simulado",
+      "  github status                   - Muestra estado del remoto simulado",
+      "  github pr create <from> [to]    - Crea un Pull Request simulado",
+      "  github pr list                  - Lista Pull Requests simulados",
+      "  github pr merge <id>            - Marca un PR simulado como MERGED",
     ].join("\n");
   }
+
 
   // Shell
   if (trimmed === "pwd") {
@@ -232,12 +534,62 @@ export async function runCommand(input) {
           "  git push origin main",
         ].join("\n");
       }
+
       case "gh-status":
         return getRemoteStatus();
+
+      case "gh-pr-create": {
+        try {
+          const pr = createPullRequest(parsed.from, parsed.to, parsed.title);
+          return [
+            `Pull Request simulado creado (#${pr.id}):`,
+            `  De: ${pr.fromBranch}`,
+            `  A:  ${pr.toBranch}`,
+            `  Título: ${pr.title}`,
+            "",
+            "En Git real, alguien revisaría el código antes de aprobar el merge.",
+          ].join("\n");
+        } catch (e) {
+          return e.message || String(e);
+        }
+      }
+
+      case "gh-pr-list": {
+        const prs = listPullRequests();
+        if (!prs.length) {
+          return "No hay Pull Requests simulados todavía.";
+        }
+
+        const lines = ["Pull Requests simulados:"];
+        prs.forEach((pr) => {
+          lines.push(
+            `#${pr.id} [${pr.status}] ${pr.fromBranch} → ${pr.toBranch} — ${pr.title}`
+          );
+        });
+        return lines.join("\n");
+      }
+
+      case "gh-pr-merge": {
+        try {
+          const pr = mergePullRequest(parsed.id);
+          return [
+            `PR #${pr.id} marcado como MERGED.`,
+            `Rama origen: ${pr.fromBranch}`,
+            `Rama destino: ${pr.toBranch}`,
+            "",
+            "Recordá que en Git real esto crea un commit de merge (o fast-forward) en la rama destino.",
+          ].join("\n");
+        } catch (e) {
+          return e.message || String(e);
+        }
+      }
+
       default:
         return "Error interno al procesar comando GitHub simulado.";
     }
   }
+
+
 
   // Git
   if (trimmed.startsWith("git ")) {
@@ -249,12 +601,30 @@ export async function runCommand(input) {
     }
 
     switch (parsed.type) {
-      case "git-init":
-        return await gitInit();
-      case "git-status":
-        return await gitStatus();
-      case "git-add":
-        return await gitAdd(parsed.file);
+      case "git-init": {
+        const msg = await gitInit();
+        return withHint("git-init", msg, [
+          "git init crea la carpeta .git y empieza a seguir el historial en este proyecto.",
+          "Usalo una sola vez al crear un repositorio nuevo.",
+        ]);
+      }
+
+      case "git-status": {
+        const msg = await gitStatus();
+        return withHint("git-status", msg, [
+          "git status te muestra qué archivos cambiaron y si están en el staging (listos para commit) o no.",
+          "Es útil para revisar antes de hacer git add o git commit.",
+        ]);
+      }
+
+      case "git-add": {
+        const msg = await gitAdd(parsed.file);
+        return withHint("git-add", msg, [
+          "git add prepara archivos para el próximo commit (staging).",
+          "Usalo para elegir qué cambios querés incluir en un commit.",
+        ]);
+      }
+
       case "git-add-dot": {
         const entries = await listDir(REPO_DIR);
         const visibles = entries.filter((name) => name !== ".git");
@@ -271,28 +641,106 @@ export async function runCommand(input) {
           visibles.forEach((f) => msg.push(`  - ${f}`));
         }
 
-        return msg.join("\n");
+        return withHint("git-add", msg.join("\n"), [
+          "git add prepara archivos para el próximo commit (staging).",
+          "En la vida real podrías usar git add . para todo, pero acá practicamos archivo por archivo 😉.",
+        ]);
       }
 
-      case "git-commit":
-        return await gitCommit(parsed.message);
-      case "git-log":
-        return await gitLog(parsed.ref);
-      case "git-branch-list":
-        return await gitListBranches();
-      case "git-branch-create":
-        return await gitCreateBranch(parsed.name);
-      case "git-checkout":
-        return await gitCheckout(parsed.name);
-      case "git-merge":
-        return await gitMerge(parsed.branch);
-      case "git-push":
-        return await pushToRemote(parsed.remote, parsed.branch);
+      case "git-commit": {
+        const msg = await gitCommit(parsed.message);
+        return withHint("git-commit", msg, [
+          "git commit guarda un snapshot del estado de los archivos que agregaste con git add.",
+          "Elegí mensajes claros, así recordás qué cambio hiciste en cada commit.",
+        ]);
+      }
+
+      case "git-log": {
+        const msg = await gitLog(parsed.ref);
+        return withHint("git-log", msg, [
+          "git log te muestra el historial de commits.",
+          "Podés usar git log nombre-rama para ver otra rama específica.",
+        ]);
+      }
+
+      case "git-branch-list": {
+        const msg = await gitListBranches();
+        return withHint("git-branch", msg, [
+          "git branch lista las ramas locales del proyecto.",
+          "Crear ramas nuevas te permite probar cosas sin romper la rama principal.",
+        ]);
+      }
+
+      case "git-branch-create": {
+        const msg = await gitCreateBranch(parsed.name);
+        return withHint("git-branch", msg, [
+          "git branch <nombre> crea una rama nueva apuntando al commit actual.",
+          "Es buena práctica crear una rama por feature o tarea.",
+        ]);
+      }
+
+      case "git-checkout": {
+        const msg = await gitCheckout(parsed.name);
+        return withHint("git-checkout", msg, [
+          "git checkout cambia la rama activa.",
+          "Usalo para moverte entre versiones de tu proyecto (por ejemplo: main, feature/login, etc.).",
+        ]);
+      }
+
+      case "git-merge": {
+        const msg = await gitMerge(parsed.branch);
+        return withHint("git-merge", msg, [
+          "git merge integra los commits de otra rama en la rama actual.",
+          "Si hay conflictos, tendrás que resolverlos en los archivos y luego hacer git add + git commit.",
+        ]);
+      }
+
+      case "git-conflicts": {
+        const files = await listConflictFiles();
+        if (!files.length) {
+          return withHint("git-conflicts",
+            "No se detectan archivos con marcas de conflicto (<<<<<<< ======= >>>>>>>) en /repo.",
+            [
+              "Los conflictos aparecen cuando dos ramas modifican la misma parte de un archivo.",
+              "Si hiciste git merge y no ves conflictos, puede que el merge haya sido automático."
+            ]
+          );
+        }
+
+        const base = [
+          "Archivos con conflictos detectados (buscando <<<<<<<, =======, >>>>>>>):",
+          ...files.map((f) => `  - ${f}`),
+          "",
+          "Pasos típicos para resolver un conflicto:",
+          "  1. Abrí el archivo en el editor.",
+          "  2. Elegí qué versión dejar (o combiná ambas) y borrá las marcas.",
+          "  3. Guardá el archivo.",
+          "  4. Ejecutá: git add <archivo>",
+          '  5. Luego: git commit -m "Resuelvo conflicto de merge"',
+        ].join("\n");
+
+        return withHint("git-conflicts", base, [
+          "git conflicts es una ayuda para localizar rápidamente qué archivos tienen conflictos de merge.",
+          "Combinado con el editor, te guía para practicar la resolución de conflictos paso a paso."
+        ]);
+      }
+
+
+      case "git-push": {
+        const msg = await pushToRemote(parsed.remote, parsed.branch);
+        return withHint("git-push", msg, [
+          "git push envía tus commits a un remoto (por ejemplo, GitHub).",
+          "En este simulador usamos un GitHub falso para practicar sin romper repos reales.",
+        ]);
+      }
+
+
+
       default:
         return "Error interno al procesar comando git.";
     }
   }
 
-
+  // Fallback global: cualquier cosa que no sea git/github/shell
   return `Comando no reconocido: ${input}\nEscribí "help" para ver comandos.`;
 }

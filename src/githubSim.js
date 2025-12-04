@@ -39,6 +39,10 @@ export function createRemoteRepo(name) {
     url: `https://github-sim.local/${name}.git`,
     lastPushedBranch: null,
     commits: [],
+
+    // 👇 NUEVO: soporte de Pull Requests simulados
+    pullRequests: [],
+    nextPrId: 1,
   };
   saveRemote(remote);
   return remote;
@@ -63,12 +67,81 @@ export function getRemoteStatus() {
       out += `    ${c.oid.slice(0, 7)}  ${c.message}\n`;
     }
   }
+
+  if (remote.pullRequests && remote.pullRequests.length) {
+    out += `  Pull Requests: ${remote.pullRequests.length} (usá "github pr list")\n`;
+  }
+
   return out;
 }
 
-// 🔹 Nuevo: para el panel React
+// 🔹 Para el panel React / visualizador
 export function getRemoteData() {
   return loadRemote();
+}
+
+// 🔹 Nuevo: crear un PR simulado
+export function createPullRequest(fromBranch, toBranch, title) {
+  let remote = loadRemote();
+  if (!remote) {
+    throw new Error(
+      "No hay remoto simulado. Creá uno primero con: github create <nombre-repo>"
+    );
+  }
+
+  if (!remote.pullRequests) {
+    remote.pullRequests = [];
+  }
+  if (typeof remote.nextPrId !== "number") {
+    remote.nextPrId = 1;
+  }
+
+  const pr = {
+    id: remote.nextPrId++,
+    fromBranch,
+    toBranch,
+    title: title && title.trim()
+      ? title.trim()
+      : `PR: ${fromBranch} → ${toBranch}`,
+    status: "OPEN", // OPEN | MERGED | (podríamos agregar CLOSED después)
+    createdAt: Date.now(),
+    mergedAt: null,
+  };
+
+  remote.pullRequests.push(pr);
+  saveRemote(remote);
+  return pr;
+}
+
+// 🔹 Nuevo: listar PRs simulados
+export function listPullRequests() {
+  const remote = loadRemote();
+  if (!remote || !remote.pullRequests) return [];
+  return remote.pullRequests;
+}
+
+// 🔹 Nuevo: marcar un PR como MERGED
+export function mergePullRequest(id) {
+  const remote = loadRemote();
+  if (!remote || !remote.pullRequests) {
+    throw new Error("No hay remoto simulado con Pull Requests.");
+  }
+
+  const pr = remote.pullRequests.find((p) => p.id === id);
+  if (!pr) {
+    throw new Error(`No encontré un Pull Request con id ${id}.`);
+  }
+
+  if (pr.status === "MERGED") {
+    // ya estaba mergeado, no hacemos nada raro
+    return pr;
+  }
+
+  pr.status = "MERGED";
+  pr.mergedAt = Date.now();
+
+  saveRemote(remote);
+  return pr;
 }
 
 export async function pushToRemote(remoteName, branchName = "main") {
@@ -103,17 +176,16 @@ export async function pushToRemote(remoteName, branchName = "main") {
     timestamp: entry.commit.author.timestamp,
   }));
 
-    const updated = {
+  const updated = {
     ...remote,
     lastPushedBranch: branchName,
     commits,
   };
 
-
   saveRemote(updated);
 
   return [
-    `Push simulado a ${remote.url}`,
+    `Push simulado a ${updated.url}`,
     `Rama: ${branchName}`,
     `Commits enviados: ${commits.length}`,
   ].join("\n");

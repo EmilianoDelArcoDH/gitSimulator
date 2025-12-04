@@ -24,6 +24,6 @@ export const ACTIVITIES = [
     description:
       'Además de Git y GitHub simulado, trabajá con el editor para crear "index.html" y validar su contenido.',
     showEditor: true,
-    enabledMissionIds: ["m1","m2","m3","m4","m5","m6","m7","m8"],
+    enabledMissionIds: ["m1","m2","m3","m4","m5","m6","m7","m8","m9"],
   },
 ];

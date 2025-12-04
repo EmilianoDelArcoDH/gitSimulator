@@ -385,3 +385,45 @@ export async function validateMission8() {
   };
 }
 
+/**
+ * MISIÓN 9
+ * Crear un Pull Request simulado desde una rama de feature hacia main.
+ *
+ * Esta misión valida:
+ *  - Que exista un remoto simulado.
+ *  - Que exista al menos una rama distinta de main.
+ *  - Que haya un PR creado en el remoto simulado.
+ */
+export async function validateMission9() {
+  const errors = [];
+
+  const remote = getRemoteData();
+  if (!remote) {
+    errors.push(
+      "Todavía no creaste un remoto simulado. Usá: github create <nombre-repo>"
+    );
+    return { ok: false, errors };
+  }
+
+  // Debe haber al menos un PR
+  const prs = remote.pullRequests || [];
+  if (prs.length === 0) {
+    errors.push(
+      "No encontré Pull Requests. Creá uno con:\ngithub pr create <rama> main"
+    );
+    return { ok: false, errors };
+  }
+
+  // Debe haber PR abierto (OPEN)
+  const open = prs.find((p) => p.status === "OPEN");
+  if (!open) {
+    errors.push(
+      "No encontré ningún PR abierto. Asegurate de crear uno desde tu rama de feature."
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}

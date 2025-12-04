@@ -14,10 +14,13 @@ export function Terminal() {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [prompt, setPrompt] = useState("git-trainer$ ");
-  const bottomRef = useRef(null);
+  const logRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (logRef.current) {
+      // 👇 solo se scrollea dentro del panel, no la página entera
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
   }, [lines]);
 
   const appendLine = (line) => {
@@ -97,6 +100,7 @@ export function Terminal() {
       }}
     >
       <div
+        ref={logRef} // 👈 ref en el contenedor scrolleable
         style={{
           flex: 1,
           overflowY: "auto",
@@ -107,7 +111,6 @@ export function Terminal() {
         {lines.map((line, i) => (
           <div key={i}>{line}</div>
         ))}
-        <div ref={bottomRef} />
       </div>
 
       <form onSubmit={handleSubmit} style={{ marginTop: "8px" }}>
@@ -116,7 +119,7 @@ export function Terminal() {
           autoFocus
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
-          onKeyDown={handleKeyDown}   // 👈 historial + clear
+          onKeyDown={handleKeyDown}
           style={{
             background: "transparent",
             border: "none",

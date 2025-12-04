@@ -12,6 +12,7 @@ export function GitVisualizer() {
   const [currentBranch, setCurrentBranch] = useState("main");
   const [error, setError] = useState("");
   const [branchGraph, setBranchGraph] = useState([]);
+  const [pullRequests, setPullRequests] = useState([]);
 
   async function loadData() {
     setError("");
@@ -79,6 +80,7 @@ export function GitVisualizer() {
     if (!remote) {
       setRemoteInfo(null);
       setRemoteCommits([]);
+      setPullRequests([]);
     } else {
       setRemoteInfo({
         name: remote.name,
@@ -96,6 +98,7 @@ export function GitVisualizer() {
         };
       });
       setRemoteCommits(mapped);
+      setPullRequests(remote.pullRequests || []);
     }
   }
 
@@ -275,9 +278,7 @@ export function GitVisualizer() {
                           commits.map((c, i) => (
                             <div
                               key={c.oid + i}
-                              title={`${c.oid.slice(0, 7)} - ${
-                                c.message
-                              }`}
+                              title={`${c.oid.slice(0, 7)} - ${c.message}`}
                               style={{
                                 display: "flex",
                                 alignItems: "center",
@@ -292,7 +293,7 @@ export function GitVisualizer() {
                                   background: color,
                                   boxShadow:
                                     branch.name === currentBranch &&
-                                    i === commits.length - 1
+                                      i === commits.length - 1
                                       ? `0 0 0 2px #f9fafb55`
                                       : "none",
                                 }}
@@ -349,6 +350,7 @@ export function GitVisualizer() {
                 <strong>Última rama pusheada:</strong>{" "}
                 {remoteInfo.lastPushedBranch || "(ninguna)"}
               </p>
+
               {remoteCommits.length === 0 ? (
                 <p style={{ fontSize: "13px", color: "#9ca3af" }}>
                   Sin commits remotos.
@@ -386,6 +388,105 @@ export function GitVisualizer() {
                   ))}
                 </ul>
               )}
+
+              {/* 🔹 Pull Requests simulados */}
+              <div
+                style={{
+                  marginTop: "12px",
+                  borderTop: "1px solid #1f2937",
+                  paddingTop: "8px",
+                }}
+              >
+                <h4 style={{ margin: "0 0 4px", fontSize: "13px" }}>
+                  Pull Requests simulados
+                </h4>
+
+                {pullRequests.length === 0 ? (
+                  <p style={{ fontSize: "12px", color: "#9ca3af" }}>
+                    No hay PRs todavía.
+                    <br />
+                    Probá crear uno con:
+                    <br />
+                    <code>github pr create feature/login main</code>
+                  </p>
+                ) : (
+                  <ul
+                    style={{
+                      listStyle: "none",
+                      padding: 0,
+                      margin: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}
+                  >
+                    {pullRequests.map((pr) => (
+                      <li
+                        key={pr.id}
+                        style={{
+                          padding: "6px 8px",
+                          borderRadius: "6px",
+                          background: "#020617",
+                          border: "1px solid #1f2937",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              fontSize: "12px",
+                            }}
+                          >
+                            #{pr.id} —{" "}
+                            {pr.title || `${pr.fromBranch} → ${pr.toBranch}`}
+                          </span>
+
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              padding: "1px 6px",
+                              borderRadius: "999px",
+                              background:
+                                pr.status === "MERGED"
+                                  ? "#16a34a33"
+                                  : "#fbbf2433",
+                              color:
+                                pr.status === "MERGED"
+                                  ? "#4ade80"
+                                  : "#facc15",
+                              border:
+                                pr.status === "MERGED"
+                                  ? "1px solid #16a34a"
+                                  : "1px solid #facc15",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {pr.status}
+                          </span>
+                        </div>
+
+                        <div style={{ color: "#9ca3af", marginBottom: "4px" }}>
+                          {pr.fromBranch} → {pr.toBranch}
+                        </div>
+
+                        <div style={{ fontSize: "11px", color: "#6b7280" }}>
+                          💡 Para mergear este PR desde la consola:
+                          <br />
+                          <code>github pr merge {pr.id}</code>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </>
           )}
         </div>
