@@ -247,10 +247,10 @@ function App() {
             }}
           >
             {showEditor && (
-              <EditorPanel key={`editor-${resetId}-${activityId}`} />
+              <EditorPanel key={`editor-${resetId}-${activityId}`} theme={theme} />
             )}
 
-            <Terminal key={`terminal-${resetId}-${activityId}`} />
+            <Terminal key={`terminal-${resetId}-${activityId}`} theme={theme} />
           </div>
 
           {/* Columna derecha */}
@@ -261,13 +261,14 @@ function App() {
               gap: "12px",
             }}
           >
-            <GitVisualizer key={`viz-${resetId}-${activityId}`} />
+            <GitVisualizer key={`viz-${resetId}-${activityId}`} theme={theme} />
 
             <SuggestionsPanel key={`tips-${resetId}-${activityId}`} />
 
             <MissionsPanel
               key={`missions-${resetId}-${activityId}`}
               enabledMissionIds={currentActivity.enabledMissionIds}
+              theme={theme}
             />
           </div>
         </div>

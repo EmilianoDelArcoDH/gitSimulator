@@ -88,3 +88,26 @@ export async function resetFileSystem() {
 }
 
 export { fs, pfs };
+
+export async function createFileWithTemplate(file) {
+  const path = `${REPO_DIR}/${file}`;
+
+  if (file.toLowerCase().endsWith(".html")) {
+    const template = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>${file}</title>
+</head>
+<body>
+
+</body>
+</html>
+`;
+    await writeFile(path, template);
+    return;
+  }
+
+  // Podés extender para .css, .js, etc.
+  await writeFile(path, "");
+}

@@ -82,7 +82,7 @@ const missions = [
 ];
 
 
-export function MissionsPanel({ enabledMissionIds }) {
+export function MissionsPanel({ enabledMissionIds, theme }) {
   const [results, setResults] = useState({}); // { [id]: { ok, errors } }
   const [loadingId, setLoadingId] = useState(null);
   const visibleMissions = enabledMissionIds
@@ -119,18 +119,19 @@ export function MissionsPanel({ enabledMissionIds }) {
   return (
     <div
       style={{
+        background: theme === "dark" ? "#0C0C0C" : "#ffffff",
+        border: `1px solid ${theme === "dark" ? "#1f2937" : "#cbd5e1"}`,
+        color: theme === "dark" ? "#e5e7eb" : "#1f2937",
         marginTop: "16px",
-        background: "#020617",
         borderRadius: "8px",
         padding: "12px",
-        border: "1px solid #1f2937",
       }}
     >
       <h2
         style={{
           margin: "0 0 8px 0",
           fontSize: "18px",
-          color: "#e5e7eb",
+          color: theme === "dark" ? "#e5e7eb" : "#1f2937",
         }}
       >
         Misiones de práctica

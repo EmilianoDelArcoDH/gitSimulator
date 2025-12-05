@@ -1,6 +1,6 @@
 // src/EditorPanel.jsx
 import React, { useEffect, useState } from "react";
-import { REPO_DIR, listDir, readFile, writeFile, fileExists } from "./gitFs";
+import { REPO_DIR, listDir, readFile, writeFile, fileExists, createFileWithTemplate } from "./gitFs";
 
 // 🧠 CodeMirror
 import CodeMirror from "@uiw/react-codemirror";
@@ -9,7 +9,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { css } from "@codemirror/lang-css";
 import { oneDark } from "@codemirror/theme-one-dark";
 
-export function EditorPanel() {
+export function EditorPanel({ theme }) {
     const [files, setFiles] = useState([]);
     const [selected, setSelected] = useState("");
     const [content, setContent] = useState("");
@@ -81,19 +81,36 @@ export function EditorPanel() {
         e.preventDefault();
         const name = newFileName.trim();
         if (!name) return;
+
         setLoading(true);
         setStatus("");
+
         try {
             const path = `${REPO_DIR}/${name}`;
             const exists = await fileExists(path);
+
             if (exists) {
-                setStatus("Ese archivo ya existe. Solo se cargó su contenido.");
+                // El archivo ya existe en el FS (por ejemplo, porque lo creaste con touch)
+                setStatus("Ese archivo ya existe. Se cargó su contenido actual.");
             } else {
-                await writeFile(path, "");
-                setStatus(`Archivo creado: ${name}`);
+                // 👇 Usamos la plantilla compartida (HTML básico para .html, vacío para otros, etc.)
+                await createFileWithTemplate(name);
+
+                // Mensaje más educativo
+                const isHtml = name.toLowerCase().endsWith(".html");
+                setStatus(
+                    isHtml
+                        ? `Archivo HTML creado con plantilla básica: ${name}`
+                        : `Archivo creado: ${name}`
+                );
             }
+
             setNewFileName("");
+
+            // Volvemos a leer la lista (para que aparezca si es nuevo)
             await refreshFiles();
+
+            // Y lo abrimos en el editor, siempre desde el FS real
             await handleSelectFile(name);
         } catch (e) {
             setStatus(`Error al crear archivo: ${e.message || String(e)}`);
@@ -101,6 +118,7 @@ export function EditorPanel() {
             setLoading(false);
         }
     };
+
     const getExtensionsForFile = () => {
         if (!selected) return [];
         const lower = selected.toLowerCase();
@@ -123,10 +141,10 @@ export function EditorPanel() {
     return (
         <div
             style={{
+                background: theme === "dark" ? "#0C0C0C" : "#ffffff",
+                border: `1px solid ${theme === "dark" ? "#1f2937" : "#cbd5e1"}`,
                 marginBottom: "12px",
-                background: "#020617",
                 borderRadius: "8px",
-                border: "1px solid #1f2937",
                 padding: "10px",
                 display: "flex",
                 flexDirection: "column",
@@ -142,14 +160,14 @@ export function EditorPanel() {
                 }}
             >
                 <div>
-                    <h2 style={{ margin: 0, fontSize: "16px", color: "#e5e7eb" }}>
+                    <h2 style={{ margin: 0, fontSize: "16px", color: theme === "dark" ? "#e5e7eb" : "#1f2937", }}>
                         Editor de archivos (repo /repo)
                     </h2>
                     <p
                         style={{
                             margin: 0,
                             fontSize: "12px",
-                            color: "#9ca3af",
+                            color: theme === "dark" ? "#9ca3af" : "#6b7280",
                         }}
                     >
                         Editá archivos como <code>index.html</code>,{" "}
@@ -184,7 +202,7 @@ export function EditorPanel() {
                 <div
                     style={{
                         borderRight: "1px solid #1f2937",
-                        paddingRight: "8px",
+                        paddingRight: "17px",
                         fontSize: "13px",
                     }}
                 >
@@ -212,7 +230,7 @@ export function EditorPanel() {
                                         onClick={() => handleSelectFile(f)}
                                         style={{
                                             background:
-                                                selected === f ? "#1d4ed8" : "transparent",
+                                                selected === f ? "#7391e4ff" : "transparent",
                                             borderRadius: "4px",
                                             border:
                                                 selected === f
@@ -220,7 +238,7 @@ export function EditorPanel() {
                                                     : "1px solid transparent",
                                             padding: "2px 6px",
                                             fontSize: "12px",
-                                            color: "#e5e7eb",
+                                            color: theme === "dark" ? "#e5e7eb" : "#1f2937",
                                             cursor: "pointer",
                                             width: "100%",
                                             textAlign: "left",
@@ -233,7 +251,7 @@ export function EditorPanel() {
                         </ul>
                     )}
 
-                    <form onSubmit={handleCreateFile} style={{ marginTop: "8px" }}>
+                    <form onSubmit={handleCreateFile} style={{ marginTop: "8px", textAlign: "center" }}>
                         <input
                             type="text"
                             placeholder="index.html"

@@ -5,7 +5,7 @@ import { fs, REPO_DIR } from "./gitFs";
 import { getRemoteData } from "./githubSim";
 import { gitCurrentBranchName } from "./gitService";
 
-export function GitVisualizer() {
+export function GitVisualizer({ theme }) {
   const [localCommits, setLocalCommits] = useState([]);
   const [remoteCommits, setRemoteCommits] = useState([]);
   const [remoteInfo, setRemoteInfo] = useState(null);
@@ -109,8 +109,8 @@ export function GitVisualizer() {
   return (
     <div
       style={{
-        background: "#0f172a",
-        color: "#e5e7eb",
+        background: theme === "dark" ? "#0C0C0C" : "#ffffff",
+        color: theme === "dark" ? "#e5e7eb" : "#1f2937",
         borderRadius: "8px",
         padding: "12px",
         height: "400px",
