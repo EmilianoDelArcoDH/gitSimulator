@@ -162,91 +162,36 @@ export function Terminal({ theme }) {
   };
 
   return (
-    <div
-      style={{
-        background: theme === "dark" ? "#0C0C0C" : "#ffffff",
-        color: theme === "dark" ? "#e5e7eb" : "#1f2937",
-        border: `1px solid ${theme === "dark" ? "#333" : "#cbd5e1"}`,
-        fontFamily: "'Consolas', 'Courier New', monospace",
-        padding: "14px",
-        borderRadius: "8px",
-        height: "420px",
-        display: "flex",
-        flexDirection: "column",
-        boxShadow: "0 0 8px rgba(0,0,0,0.4)",
-      }}
-    >
-      <div
-        ref={logRef}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          whiteSpace: "pre-wrap",
-          fontSize: "14px",
-          lineHeight: "1.4",
-          padding: "8px",
-          background: "#111",
-          borderRadius: "4px",
-          marginBottom: "8px",
-          border: "1px solid #222",
-          color: "#e5e7eb",
-        }}
-      >
+    <div className="terminal-container">
+      <div ref={logRef} className="terminal-log">
         {lines.map((line, i) => (
-          <div key={i}>{line}</div>
+          <div key={i} className="terminal-line">{line}</div>
         ))}
       </div>
 
       {/* Cartelito del tip educativo */}
       {hint && (
-        <div
-          style={{
-            marginBottom: "6px",
-            padding: "6px 8px",
-            borderRadius: "4px",
-            fontSize: "12px",
-            background: theme === "dark" ? "#1f2937" : "#e5f3ff",
-            color: theme === "dark" ? "#e5e7eb" : "#1f2937",
-            border: `1px solid ${theme === "dark" ? "#3b82f6" : "#60a5fa"}`,
-          }}
-        >
-          <strong style={{ marginRight: 4 }}>💡 Tip:</strong>
-          <pre
-            style={{
-              display: "inline",
-              whiteSpace: "pre-wrap",
-              fontFamily: "inherit",
-            }}
-          >
-            {hint}
-          </pre>
+        <div className="terminal-hint">
+          <strong className="terminal-hint-icon">💡 Tip:</strong>
+          <pre className="terminal-hint-text">{hint}</pre>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ marginTop: "4px" }}>
+      <form onSubmit={handleSubmit} className="terminal-input-form">
         {/* PROMPT ESTILO GIT BASH CON DH */}
-        <span style={{ display: "flex", flexWrap: "wrap" }}>
-          <span style={{ color: "#3CF253" }}>DH@GIT-TRAINER</span>
-          <span style={{ color: "#C586C0" }}> MINGW64</span>
-          <span style={{ color: "#E3BF5F" }}> ~/repo</span>
-          <span style={{ color: "#3CF253" }}> ({branch})</span>
-          <span style={{ color: "#FFFFFF" }}>$ </span>
-        </span>
+        <div className="terminal-prompt">
+          <span className="terminal-prompt-user">DH@GIT-TRAINER</span>
+          <span className="terminal-prompt-mingw"> MINGW64</span>
+          <span className="terminal-prompt-path"> ~/repo</span>
+          <span className="terminal-prompt-branch"> ({branch})</span>
+          <span className="terminal-prompt-dollar">$ </span>
+        </div>
         <input
           autoFocus
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
           onKeyDown={handleKeyDown}
-          style={{
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            color: theme === "dark" ? "#e5e7eb" : "#1f2937",
-            fontFamily: "'Consolas', monospace",
-            fontSize: "14px",
-            paddingLeft: "6px",
-            width: "80%",
-          }}
+          className="terminal-input"
         />
       </form>
     </div>

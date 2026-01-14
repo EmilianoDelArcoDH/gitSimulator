@@ -19,6 +19,7 @@ import {
   listPullRequests,
   mergePullRequest,
 } from "./githubSim";
+import { isCommandAllowed, getBlockedCommandMessage } from "./activities/activityRuntime";
 
 const KNOWN_GIT_FULL = [
   "git init",
@@ -167,6 +168,30 @@ function withHint(key, baseMessage, hintLines) {
   }
 
   return `${base}\n[[HINT_START]]\n${hintBody}\n[[HINT_END]]`;
+}
+
+// Normaliza input a command key para verificar permisos
+function getCommandKey(input) {
+  const trimmed = input.trim();
+  const parts = trimmed.split(/\s+/);
+  
+  // Shell commands
+  if (["help", "ls", "cat", "touch", "pwd"].includes(parts[0])) {
+    return parts[0];
+  }
+  
+  // Git commands: "git <subcommand>"
+  if (parts[0] === "git" && parts[1]) {
+    return `git ${parts[1]}`;
+  }
+  
+  // GitHub commands: "github <subcommand>"
+  if (parts[0] === "github" && parts[1]) {
+    // Para "github pr" mantenemos solo "github pr"
+    return parts[1] === "pr" ? "github pr" : `github ${parts[1]}`;
+  }
+  
+  return null; // comando desconocido, no gateamos
 }
 
 
@@ -440,6 +465,12 @@ async function listConflictFiles() {
 export async function runCommand(input) {
   const trimmed = input.trim();
   if (!trimmed) return "";
+
+  // Command gating: verificar si el comando está permitido en la actividad actual
+  const commandKey = getCommandKey(trimmed);
+  if (commandKey && !isCommandAllowed(commandKey)) {
+    return getBlockedCommandMessage(commandKey);
+  }
 
   // Caso especial: cosas tipo "gitinit", "gitstatus", "gitcommit"
   if (trimmed.startsWith("git") && !trimmed.startsWith("git ")) {
