@@ -8,6 +8,7 @@ import { EditorProvider } from "./ui/editor/EditorContext";
 import AppShell from "./ui/shell/AppShell";
 import EditorArea from "./ui/panels/EditorArea";
 import BottomPanel from "./ui/panels/BottomPanel";
+import StatusBar from "./ui/shell/components/StatusBar";
 
 function App({ activity, allActivities = [], navigateToActivity, resetting = false }) {
   const [resetId, setResetId] = useState(0);
@@ -45,9 +46,7 @@ function App({ activity, allActivities = [], navigateToActivity, resetting = fal
           </span>
         }
         statusRight={
-          <span style={{ fontSize: 11, opacity: 0.8 }}>
-            Git Trainer Simulator
-          </span>
+          <StatusBar right={<span style={{ fontSize: 11, opacity: 0.8 }}>Git Trainer Simulator</span>} />
         }
       />
     </EditorProvider>

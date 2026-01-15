@@ -9,7 +9,13 @@ import {
   gitListBranches,
   gitCreateBranch,
   gitCheckout,
+  gitCheckoutCommit,
   gitMerge,
+  gitRemoteAdd,
+  gitRemoteRemove,
+  gitRemoteList,
+  gitPull,
+  gitClone,
 } from "./gitService";
 import {
   createRemoteRepo,
@@ -18,6 +24,8 @@ import {
   createPullRequest,
   listPullRequests,
   mergePullRequest,
+  pagesPublish,
+  pagesRepublish,
 } from "./githubSim";
 import { isCommandAllowed, getBlockedCommandMessage } from "./activities/activityRuntime";
 
@@ -31,6 +39,10 @@ const KNOWN_GIT_FULL = [
   "git checkout",
   "git merge",
   "git push",
+  "git pull",
+  "git remote",
+  "git clone",
+  "git pages",
 ];
 
 function suggestFullGitCommand(raw) {
@@ -102,6 +114,11 @@ const KNOWN_GIT_SUBCOMMANDS = [
   "checkout",
   "merge",
   "push",
+  "pull",
+  "remote",
+  "clone",
+  "pages",
+  "conflicts",
 ];
 
 // Distancia de Levenshtein (para ver qué tan parecido es un comando mal escrito)
@@ -272,10 +289,15 @@ function parseGitCommand(cmd) {
       if (!name) {
         return {
           type: "error",
-          message: "Uso: git checkout <nombre-rama>",
+          message: "Uso: git checkout <nombre-rama-o-hash>",
         };
       }
-      return { type: "git-checkout", name };
+      // Si parece un hash (40 chars hex o 7+), usar checkout commit
+      const isHash = /^[0-9a-f]{7,40}$/i.test(name);
+      return { 
+        type: isHash ? "git-checkout-commit" : "git-checkout", 
+        name 
+      };
     }
     case "merge": {
       const name = parts[2];
@@ -298,6 +320,76 @@ function parseGitCommand(cmd) {
       const remote = parts[2] || "origin";
       const branch = parts[3] || "main";
       return { type: "git-push", remote, branch };
+    }
+
+    case "pull": {
+      const remote = parts[2] || "origin";
+      const branch = parts[3] || "main";
+      return { type: "git-pull", remote, branch };
+    }
+
+    case "clone": {
+      const url = parts[2];
+      if (!url) {
+        return {
+          type: "error",
+          message: "Uso: git clone <url>",
+        };
+      }
+      return { type: "git-clone", url };
+    }
+
+    case "remote": {
+      const action = parts[2];
+      
+      if (!action || action === "-v") {
+        return { type: "git-remote-list" };
+      }
+
+      if (action === "add") {
+        const name = parts[3];
+        const url = parts[4];
+        if (!name || !url) {
+          return {
+            type: "error",
+            message: "Uso: git remote add <nombre> <url>",
+          };
+        }
+        return { type: "git-remote-add", name, url };
+      }
+
+      if (action === "remove" || action === "rm") {
+        const name = parts[3];
+        if (!name) {
+          return {
+            type: "error",
+            message: "Uso: git remote remove <nombre>",
+          };
+        }
+        return { type: "git-remote-remove", name };
+      }
+
+      return {
+        type: "error",
+        message: "Uso: git remote [-v | add | remove]",
+      };
+    }
+
+    case "pages": {
+      const action = parts[2];
+      
+      if (action === "publish") {
+        return { type: "git-pages-publish" };
+      }
+
+      if (action === "republish") {
+        return { type: "git-pages-republish" };
+      }
+
+      return {
+        type: "error",
+        message: "Uso: git pages [publish | republish]",
+      };
     }
 
     default: {
@@ -513,15 +605,25 @@ export async function runCommand(input) {
       "  git init                    - Inicializa un repo Git",
       "  git status                  - Estado del repo",
       "  git add <archivo>           - Añade archivo al index",
-      "  git add <archivo>           - Añade archivo al index (no se soporta git add .)",
       "  git commit -m \"mensaje\"     - Crea un commit",
       "  git log [rama]              - Muestra el historial de commits",
-      "  git push origin main        - Push simulado al GitHub falso",
       "  git branch                  - Lista ramas",
       "  git branch <nombre>         - Crea una rama nueva",
-      "  git checkout <nombre>       - Cambia a la rama indicada",
+      "  git checkout <rama|hash>    - Cambia a rama o commit",
       "  git merge <rama>            - Integra la rama indicada en la rama actual",
       "  git conflicts               - Lista archivos con marcas de conflicto de merge",
+      "",
+      "Git remoto:",
+      "  git remote [-v]             - Lista remotos configurados",
+      "  git remote add <nom> <url>  - Configura un remoto",
+      "  git remote remove <nombre>  - Elimina un remoto",
+      "  git push origin <rama>      - Sube commits al remoto",
+      "  git pull origin <rama>      - Trae commits del remoto",
+      "  git clone <url>             - Clona repositorio remoto",
+      "",
+      "GitHub Pages (simulado):",
+      "  git pages publish           - Publica sitio en Pages",
+      "  git pages republish         - Actualiza sitio publicado",
       "",
       "GitHub simulado:",
       "  github create <nombre>          - Crea un repo remoto simulado",
@@ -731,6 +833,15 @@ if (trimmed.startsWith("git ")) {
       ]);
     }
 
+    case "git-checkout-commit": {
+      const msg = await gitCheckoutCommit(parsed.name);
+      return withHint("git-checkout", msg, [
+        "git checkout <hash> te mueve a un commit específico (detached HEAD).",
+        "Esto es útil para ver cómo era el proyecto en ese momento.",
+        "Para volver a una rama: git checkout main",
+      ]);
+    }
+
     case "git-merge": {
       const msg = await gitMerge(parsed.branch);
       return withHint("git-merge", msg, [
@@ -778,6 +889,60 @@ if (trimmed.startsWith("git ")) {
       ]);
     }
 
+    case "git-pull": {
+      const msg = await gitPull(parsed.remote, parsed.branch);
+      return withHint("git-pull", msg, [
+        "git pull trae commits del remoto y los integra en tu rama actual.",
+        "Es equivalente a: git fetch + git merge",
+      ]);
+    }
+
+    case "git-clone": {
+      const msg = await gitClone(parsed.url);
+      return withHint("git-clone", msg, [
+        "git clone copia un repositorio remoto a tu máquina local.",
+        "Es la forma más común de empezar a trabajar en un proyecto existente.",
+      ]);
+    }
+
+    case "git-remote-add": {
+      const msg = await gitRemoteAdd(parsed.name, parsed.url);
+      return withHint("git-remote", msg, [
+        "git remote add configura un repositorio remoto.",
+        "Después podés hacer push/pull con ese remoto.",
+      ]);
+    }
+
+    case "git-remote-remove": {
+      const msg = await gitRemoteRemove(parsed.name);
+      return withHint("git-remote", msg, [
+        "git remote remove elimina la configuración de un remoto.",
+      ]);
+    }
+
+    case "git-remote-list": {
+      const msg = await gitRemoteList();
+      return withHint("git-remote", msg, [
+        "git remote -v lista los remotos configurados.",
+        "Cada remoto tiene una URL de fetch y push.",
+      ]);
+    }
+
+    case "git-pages-publish": {
+      const msg = pagesPublish();
+      return withHint("git-pages", msg, [
+        "GitHub Pages te permite publicar sitios web estáticos desde tu repositorio.",
+        "Es gratis y muy usado para portfolios, documentación y proyectos pequeños.",
+      ]);
+    }
+
+    case "git-pages-republish": {
+      const msg = pagesRepublish();
+      return withHint("git-pages", msg, [
+        "Republicar actualiza tu sitio con los últimos cambios.",
+        "En GitHub real, esto se hace automáticamente en cada push.",
+      ]);
+    }
 
 
     default:

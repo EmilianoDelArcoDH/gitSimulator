@@ -190,3 +190,60 @@ export async function pushToRemote(remoteName, branchName = "main") {
     `Commits enviados: ${commits.length}`,
   ].join("\n");
 }
+
+// 🔹 GitHub Pages simulado
+export function pagesPublish() {
+  const remote = loadRemote();
+  if (!remote) {
+    return [
+      "Error: no hay remoto simulado.",
+      "Creá uno con: github create <nombre>",
+    ].join("\n");
+  }
+
+  const pagesUrl = `https://pages-sim.local/${remote.name}`;
+  const updated = {
+    ...remote,
+    pagesUrl,
+    pagesPublishedAt: Date.now(),
+    pagesLastUpdate: null,
+  };
+
+  saveRemote(updated);
+
+  return [
+    "✓ Sitio publicado en GitHub Pages (simulado)",
+    `URL: ${pagesUrl}`,
+    "",
+    "💡 En GitHub real, esto desplegaría tu sitio públicamente.",
+    "Podés actualizar con: git pages republish",
+  ].join("\n");
+}
+
+export function pagesRepublish() {
+  const remote = loadRemote();
+  if (!remote) {
+    return "Error: no hay remoto simulado.";
+  }
+
+  if (!remote.pagesUrl) {
+    return [
+      "Error: no publicaste el sitio todavía.",
+      "Usá primero: git pages publish",
+    ].join("\n");
+  }
+
+  const updated = {
+    ...remote,
+    pagesLastUpdate: Date.now(),
+  };
+
+  saveRemote(updated);
+
+  return [
+    "✓ Sitio actualizado en GitHub Pages (simulado)",
+    `URL: ${remote.pagesUrl}`,
+    "",
+    "💡 Los cambios que hiciste en commits nuevos ya están desplegados.",
+  ].join("\n");
+}

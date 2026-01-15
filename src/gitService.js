@@ -187,3 +187,122 @@ export async function gitMerge(theirs) {
     return `Error al hacer merge: ${e.message || String(e)}`;
   }
 }
+
+// 🔹 Git Remote Commands
+export async function gitRemoteAdd(name, url) {
+  await git.addRemote({ fs, dir: REPO_DIR, remote: name, url });
+  return `Remoto agregado: ${name} -> ${url}`;
+}
+
+export async function gitRemoteRemove(name) {
+  await git.deleteRemote({ fs, dir: REPO_DIR, remote: name });
+  return `Remoto eliminado: ${name}`;
+}
+
+export async function gitRemoteList() {
+  const remotes = await git.listRemotes({ fs, dir: REPO_DIR });
+  if (!remotes.length) {
+    return "No hay remotos configurados.";
+  }
+  let output = "";
+  for (const r of remotes) {
+    output += `${r.remote}\t${r.url} (fetch)\n`;
+    output += `${r.remote}\t${r.url} (push)\n`;
+  }
+  return output;
+}
+
+// 🔹 Git Pull (fetch + merge simulado)
+export async function gitPull(remote, branch) {
+  // En el simulador, pull trae commits del remoto simulado
+  const { getRemoteData } = await import("./githubSim");
+  const remoteData = getRemoteData();
+  
+  if (!remoteData) {
+    return "Error: no hay remoto simulado. Usá: github create <nombre>";
+  }
+
+  if (!remoteData.commits || remoteData.commits.length === 0) {
+    return "El remoto no tiene commits para traer.";
+  }
+
+  // Verificar que tenemos los commits remotos localmente
+  const localLog = await getHeadLog();
+  const localOids = localLog.map(c => c.oid);
+  const remoteOids = remoteData.commits.map(c => c.oid);
+
+  const newCommits = remoteOids.filter(oid => !localOids.includes(oid));
+
+  if (newCommits.length === 0) {
+    return "Ya estás actualizado con el remoto.";
+  }
+
+  return [
+    `Pull simulado completado desde ${remote}/${branch}.`,
+    `Se trajeron ${newCommits.length} commit(s) nuevo(s).`,
+    "💡 En un entorno real, esto haría fetch + merge automático.",
+  ].join("\n");
+}
+
+// 🔹 Git Clone (inicializar desde remoto)
+export async function gitClone(url) {
+  const { getRemoteData } = await import("./githubSim");
+  const remoteData = getRemoteData();
+  
+  if (!remoteData) {
+    return [
+      "Error: no hay repositorio remoto simulado en esa URL.",
+      "Primero creá un remoto con: github create <nombre>",
+    ].join("\n");
+  }
+
+  if (!remoteData.commits || remoteData.commits.length === 0) {
+    return "El remoto no tiene commits para clonar.";
+  }
+
+  // Simular clone: inicializar repo y copiar estado del remoto
+  try {
+    await git.init({ fs, dir: REPO_DIR, defaultBranch: "main" });
+    await git.addRemote({ 
+      fs, 
+      dir: REPO_DIR, 
+      remote: "origin", 
+      url: remoteData.url 
+    });
+
+    return [
+      `Clonando desde ${url}...`,
+      `Repositorio clonado: ${remoteData.name}`,
+      `${remoteData.commits.length} commit(s) disponibles.`,
+      "💡 En el simulador, los archivos se recrearán al hacer checkout.",
+    ].join("\n");
+  } catch (e) {
+    return `Error al clonar: ${e.message || String(e)}`;
+  }
+}
+
+// 🔹 Checkout con soporte para commits (hash)
+export async function gitCheckoutCommit(ref) {
+  try {
+    await git.checkout({ fs, dir: REPO_DIR, ref });
+    
+    // Verificar si es detached HEAD
+    const currentBranch = await git.currentBranch({
+      fs,
+      dir: REPO_DIR,
+      fullname: false,
+    });
+
+    if (!currentBranch) {
+      return [
+        `Te moviste al commit: ${ref.slice(0, 7)}`,
+        "⚠️ Estás en 'detached HEAD' state.",
+        "Para volver a una rama: git checkout main",
+      ].join("\n");
+    }
+
+    return `Te moviste a: ${ref}`;
+  } catch (e) {
+    return `Error al hacer checkout: ${e.message || String(e)}`;
+  }
+}

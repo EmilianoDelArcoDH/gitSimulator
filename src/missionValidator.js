@@ -427,3 +427,343 @@ export async function validateMission9() {
     errors,
   };
 }
+
+/**
+ * MISIÓN 10 - Configurar remoto origin
+ * Validar que existe un remoto configurado con git remote
+ */
+export async function validateMission10() {
+  const errors = [];
+
+  // Verificar que existe configuración de remoto en git
+  let remotes = [];
+  try {
+    remotes = await git.listRemotes({ fs, dir: REPO_DIR });
+  } catch (e) {
+    errors.push("No se pudo verificar la configuración de remotos.");
+    return { ok: false, errors };
+  }
+
+  const origin = remotes.find(r => r.remote === "origin");
+  if (!origin) {
+    errors.push(
+      'No configuraste el remoto "origin". Usá: git remote add origin <url>'
+    );
+  } else {
+    // Verificar que la URL coincida con el remoto simulado
+    const remote = getRemoteData();
+    if (remote && !origin.url.includes(remote.name)) {
+      errors.push(
+        `La URL del remoto origin no coincide con tu repo simulado. Esperado: ${remote.url}`
+      );
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 11 - Push inicial
+ * Validar que se hizo push al remoto
+ */
+export async function validateMission11() {
+  const errors = [];
+
+  const remote = getRemoteData();
+  if (!remote) {
+    errors.push(
+      "No hay remoto simulado. Creá uno con: github create <nombre>"
+    );
+    return { ok: false, errors };
+  }
+
+  if (!remote.commits || remote.commits.length === 0) {
+    errors.push(
+      "No hiciste push al remoto. Asegurate de hacer git push origin main después de commitear."
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 12 - Pull desde remoto
+ * Validar que se ejecutó git pull (verificamos que HEAD esté actualizado)
+ */
+export async function validateMission12() {
+  const errors = [];
+
+  const remote = getRemoteData();
+  if (!remote || !remote.commits || remote.commits.length === 0) {
+    errors.push(
+      "El remoto no tiene commits. Hacé push primero para poder hacer pull."
+    );
+    return { ok: false, errors };
+  }
+
+  // Verificar que local tiene los mismos commits que remoto
+  let localLog = [];
+  try {
+    localLog = await getHeadLog();
+  } catch (e) {
+    errors.push("No se pudo obtener el log local.");
+    return { ok: false, errors };
+  }
+
+  const localCommitIds = localLog.map(c => c.oid);
+  const remoteCommitIds = remote.commits.map(c => c.oid);
+
+  const hasAllRemoteCommits = remoteCommitIds.every(oid => 
+    localCommitIds.includes(oid)
+  );
+
+  if (!hasAllRemoteCommits) {
+    errors.push(
+      "Tu repo local no tiene todos los commits del remoto. Usá: git pull origin main"
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 13 - Commit message validado
+ * El mensaje del último commit debe mencionar el archivo modificado
+ */
+export async function validateMission13() {
+  const errors = [];
+
+  let log = [];
+  try {
+    log = await getHeadLog();
+  } catch (e) {
+    errors.push("No hay commits todavía.");
+    return { ok: false, errors };
+  }
+
+  if (log.length === 0) {
+    errors.push("No hay commits todavía.");
+    return { ok: false, errors };
+  }
+
+  const lastCommit = log[0];
+  const message = lastCommit.commit.message.toLowerCase();
+
+  // Obtener archivos del último commit
+  let files = [];
+  try {
+    files = await git.listFiles({ fs, dir: REPO_DIR, ref: lastCommit.oid });
+  } catch (e) {}
+
+  // Buscar archivos js/html/css/md
+  const hasJs = files.some(f => f.endsWith(".js"));
+  const hasHtml = files.some(f => f.endsWith(".html"));
+  const hasCss = files.some(f => f.endsWith(".css"));
+  const hasMd = files.some(f => f.endsWith(".md"));
+
+  let valid = false;
+
+  // El mensaje debe mencionar el tipo de archivo o el nombre
+  if (hasJs && (message.includes("js") || message.includes("javascript") || message.includes("app"))) {
+    valid = true;
+  }
+  if (hasHtml && (message.includes("html") || message.includes("index"))) {
+    valid = true;
+  }
+  if (hasCss && (message.includes("css") || message.includes("style"))) {
+    valid = true;
+  }
+  if (hasMd && (message.includes("readme") || message.includes("md"))) {
+    valid = true;
+  }
+
+  if (!valid) {
+    errors.push(
+      "El mensaje del commit debe mencionar el archivo modificado o su tipo (ej: 'Add app.js', 'Update styles', 'Fix HTML')."
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 14 - Tres commits en secuencia
+ */
+export async function validateMission14() {
+  const errors = [];
+
+  let log = [];
+  try {
+    log = await getHeadLog();
+  } catch (e) {
+    errors.push("No hay commits todavía.");
+    return { ok: false, errors };
+  }
+
+  if (log.length < 3) {
+    errors.push(
+      `Necesitás al menos 3 commits. Actualmente tenés ${log.length}.`
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 15 - Checkout a commit anterior
+ * Validar que el usuario está en detached HEAD
+ */
+export async function validateMission15() {
+  const errors = [];
+
+  const currentBranch = await gitCurrentBranchName();
+  
+  if (currentBranch && currentBranch !== "HEAD (detached)") {
+    errors.push(
+      "No estás en detached HEAD. Usá git log para ver commits anteriores y luego git checkout <hash> para moverte a uno."
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 16 - Volver a main
+ * Validar que el usuario volvió a la rama main
+ */
+export async function validateMission16() {
+  const errors = [];
+
+  const currentBranch = await gitCurrentBranchName();
+  
+  if (currentBranch !== "main") {
+    errors.push(
+      'No estás en la rama main. Usá: git checkout main para volver.'
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 17 - Clonar repositorio remoto
+ * Validar que el repo local tiene commits del remoto
+ */
+export async function validateMission17() {
+  const errors = [];
+
+  const remote = getRemoteData();
+  if (!remote) {
+    errors.push(
+      "No hay remoto simulado. Creá uno primero con: github create <nombre>"
+    );
+    return { ok: false, errors };
+  }
+
+  let log = [];
+  try {
+    log = await getHeadLog();
+  } catch (e) {
+    errors.push(
+      "El repositorio local no tiene commits. Usá: git clone <url> para clonar desde el remoto."
+    );
+    return { ok: false, errors };
+  }
+
+  if (log.length === 0) {
+    errors.push(
+      "El repositorio local está vacío. Usá: git clone <url>"
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 18 - Publish en Pages
+ * Validar que se ejecutó git pages publish
+ */
+export async function validateMission18() {
+  const errors = [];
+
+  const remote = getRemoteData();
+  if (!remote) {
+    errors.push("No hay remoto simulado.");
+    return { ok: false, errors };
+  }
+
+  if (!remote.pagesUrl) {
+    errors.push(
+      "No publicaste el sitio. Usá: git pages publish"
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * MISIÓN 19 - Republish tras cambios
+ * Validar que se actualizó el deploy
+ */
+export async function validateMission19() {
+  const errors = [];
+
+  const remote = getRemoteData();
+  if (!remote) {
+    errors.push("No hay remoto simulado.");
+    return { ok: false, errors };
+  }
+
+  if (!remote.pagesUrl) {
+    errors.push(
+      "No publicaste el sitio inicialmente. Usá: git pages publish"
+    );
+    return { ok: false, errors };
+  }
+
+  if (!remote.pagesLastUpdate) {
+    errors.push(
+      "No hay registro de actualización. Usá: git pages republish después de hacer cambios."
+    );
+  } else {
+    // Verificar que hubo un commit después del primer publish
+    const log = await getHeadLog().catch(() => []);
+    if (log.length < 2) {
+      errors.push(
+        "Necesitás hacer al menos un commit nuevo después del publish inicial."
+      );
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
+}

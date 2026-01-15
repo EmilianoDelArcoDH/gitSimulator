@@ -16,19 +16,13 @@ export default function ActivityBar({ activeView, onViewChange }: ActivityBarPro
   ];
 
   return (
-    <nav 
-      style={{ 
-        display: "flex", 
-        flexDirection: "column", 
-        gap: 4, 
-        paddingTop: 8 
-      }}
+    <nav
+      className="activity-bar-container"
       role="navigation"
       aria-label="Main navigation"
     >
       {items.map((it) => {
         const isActive = activeView === it.id;
-        
         return (
           <button
             key={it.id}
@@ -36,33 +30,10 @@ export default function ActivityBar({ activeView, onViewChange }: ActivityBarPro
             onClick={() => onViewChange(it.id)}
             aria-label={it.label}
             aria-current={isActive ? "page" : undefined}
-            className={`activity-bar-icon ${isActive ? "is-active" : ""}`}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 4,
-              border: "none",
-              background: isActive ? "var(--vsc-accent)" : "transparent",
-              color: isActive ? "#fff" : "var(--vsc-muted)",
-              cursor: "pointer",
-              position: "relative",
-              outline: "none",
-            }}
+            className={`activity-bar-icon${isActive ? " is-active" : ""}`}
           >
-            <span style={{ fontSize: 20 }}>{it.emoji}</span>
-            {isActive && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: 2,
-                  background: "#fff",
-                }}
-                aria-hidden="true"
-              />
-            )}
+            <span className="activity-bar-emoji">{it.emoji}</span>
+            {isActive && <span className="activity-bar-indicator" aria-hidden="true" />}
           </button>
         );
       })}

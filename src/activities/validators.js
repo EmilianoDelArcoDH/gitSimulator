@@ -10,6 +10,16 @@ import {
   validateMission7,
   validateMission8,
   validateMission9,
+  validateMission10,
+  validateMission11,
+  validateMission12,
+  validateMission13,
+  validateMission14,
+  validateMission15,
+  validateMission16,
+  validateMission17,
+  validateMission18,
+  validateMission19,
 } from "../missionValidator";
 
 export const validators = {
@@ -22,4 +32,14 @@ export const validators = {
   m7: validateMission7,
   m8: validateMission8,
   m9: validateMission9,
+  m10: validateMission10,
+  m11: validateMission11,
+  m12: validateMission12,
+  m13: validateMission13,
+  m14: validateMission14,
+  m15: validateMission15,
+  m16: validateMission16,
+  m17: validateMission17,
+  m18: validateMission18,
+  m19: validateMission19,
 };
